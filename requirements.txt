@@ -1,0 +1,8 @@
+nba_api
+pandas
+pyarrow
+scikit-learn
+seaborn
+matplotlib
+joblib
+pytest
