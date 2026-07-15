@@ -5,7 +5,9 @@ def synthetic_games(n_games=6, season="2023-24", start="2024-01-02"):
     """Two teams, AAA and BBB, alternating home court every 2 days.
 
     Returns a raw team-game DataFrame with the same columns fetch.py caches.
-    AAA generally outscores BBB so tests have a signal to find.
+    The home team always wins by a margin that grows with the game index,
+    so tests have a deterministic home-court signal. Neither team has a
+    persistent aggregate advantage.
     """
     rows = []
     dates = pd.date_range(start, periods=n_games, freq="2D")

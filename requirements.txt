@@ -1,8 +1,8 @@
-nba_api
-pandas
-pyarrow
-scikit-learn
-seaborn
-matplotlib
-joblib
-pytest
+nba_api==1.11.4
+pandas==3.0.3
+pyarrow==25.0.0
+scikit-learn==1.9.0
+seaborn==0.13.2
+matplotlib==3.11.0
+joblib==1.5.3
+pytest==9.1.1
