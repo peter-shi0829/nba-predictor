@@ -41,3 +41,24 @@ def add_team_form(rated):
                       .clip(upper=7).fillna(7.0))
     g["BACK_TO_BACK"] = (g["REST_DAYS"] <= 1).astype(int)
     return g
+
+
+def build_matchups(formed):
+    """One row per game: home-minus-away feature diffs plus the label."""
+    home = formed[formed["MATCHUP"].str.contains("vs.", regex=False)]
+    away = formed[formed["MATCHUP"].str.contains("@", regex=False)]
+    m = home.merge(away, on="GAME_ID", suffixes=("_HOME", "_AWAY"))
+    rows = pd.DataFrame({
+        "GAME_ID": m["GAME_ID"],
+        "GAME_DATE": m["GAME_DATE_HOME"],
+        "SEASON": m["SEASON_HOME"],
+        "IS_PLAYOFF": m["IS_PLAYOFF_HOME"],
+        "HOME_TEAM": m["TEAM_ABBREVIATION_HOME"],
+        "AWAY_TEAM": m["TEAM_ABBREVIATION_AWAY"],
+        "HOME_PTS": m["PTS_HOME"],
+        "AWAY_PTS": m["PTS_AWAY"],
+        "HOME_WIN": (m["WL_HOME"] == "W").astype(int),
+    })
+    for col in FORM_COLS:
+        rows[f"{col}_DIFF"] = m[f"{col}_HOME"] - m[f"{col}_AWAY"]
+    return rows.dropna(subset=DIFF_COLS).reset_index(drop=True)

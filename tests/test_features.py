@@ -61,3 +61,19 @@ def test_leakage_guard_future_games_do_not_change_features():
             assert f_row[col] == pytest.approx(t_row[col], nan_ok=True), col
             checked += 1
     assert checked > 0
+
+
+def test_build_matchups_one_row_per_game_with_diffs():
+    games = synthetic_games(n_games=4)
+    matchups = features.build_matchups(
+        features.add_team_form(features.add_ratings(games)))
+
+    # Game 1 drops: both teams have NaN season-to-date features
+    assert len(matchups) == 3
+    assert set(features.DIFF_COLS).issubset(matchups.columns)
+
+    row = matchups.sort_values("GAME_DATE").iloc[0]  # game 2: BBB hosts AAA
+    assert row["HOME_TEAM"] == "BBB"
+    assert row["AWAY_TEAM"] == "AAA"
+    assert row["HOME_WIN"] == 1  # home team scored 102 vs 97
+    assert "HOME_PTS" in matchups.columns  # kept for retro mode display
