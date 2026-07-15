@@ -8,6 +8,8 @@ import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 FIRST_SEASON_START = 2016
+# Historical season files are never refreshed, so adding a column to KEEP
+# requires deleting data/games_*.parquet and re-scraping history.
 KEEP = ["SEASON", "IS_PLAYOFF", "TEAM_ID", "TEAM_ABBREVIATION", "GAME_ID",
         "GAME_DATE", "MATCHUP", "WL", "PTS", "FGA", "FTA", "OREB", "TOV"]
 
@@ -54,6 +56,8 @@ def fetch_season(season):
         df["SEASON"] = season
         df["IS_PLAYOFF"] = flag
         frames.append(df[KEEP])
+    if not frames:
+        return pd.DataFrame(columns=KEEP)
     return pd.concat(frames, ignore_index=True)
 
 
@@ -72,7 +76,12 @@ def update_cache(data_dir=DATA_DIR, today=None):
         if path.exists() and season != current:
             continue
         games = fetch_season(season)
-        games.to_parquet(path, index=False)
+        if games.empty:
+            print(f"no games yet for {season}")
+            continue
+        tmp = path.with_suffix(".tmp")
+        games.to_parquet(tmp, index=False)
+        tmp.replace(path)
         print(f"cached {season}: {len(games)} rows")
 
 
