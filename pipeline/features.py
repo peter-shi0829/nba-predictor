@@ -1,0 +1,65 @@
+"""Turn raw team-game box lines into leakage-safe model features."""
+import pandas as pd
+
+STAT_COLS = ["ORTG", "DRTG", "NRTG", "PACE"]
+FORM_COLS = ([f"{c}_{w}" for c in STAT_COLS for w in ("SEASON", "LAST10")]
+             + ["REST_DAYS", "BACK_TO_BACK"])
+DIFF_COLS = [f"{c}_DIFF" for c in FORM_COLS]
+MODEL_FEATURES = DIFF_COLS + ["IS_PLAYOFF"]
+
+
+def add_ratings(games):
+    """Per team-game: possessions, offensive/defensive/net rating, pace."""
+    g = games.copy()
+    g = g.drop_duplicates(subset=["GAME_ID", "TEAM_ID"])
+    g["GAME_DATE"] = pd.to_datetime(g["GAME_DATE"])
+    g["POSS"] = g["FGA"] - g["OREB"] + g["TOV"] + 0.44 * g["FTA"]
+    opp = g[["GAME_ID", "TEAM_ID", "PTS", "POSS"]].rename(columns={
+        "TEAM_ID": "OPP_TEAM_ID", "PTS": "OPP_PTS", "POSS": "OPP_POSS"})
+    merged = g.merge(opp, on="GAME_ID")
+    merged = merged[merged["TEAM_ID"] != merged["OPP_TEAM_ID"]].copy()
+    merged["ORTG"] = 100 * merged["PTS"] / merged["POSS"]
+    merged["DRTG"] = 100 * merged["OPP_PTS"] / merged["OPP_POSS"]
+    merged["NRTG"] = merged["ORTG"] - merged["DRTG"]
+    merged["PACE"] = (merged["POSS"] + merged["OPP_POSS"]) / 2
+    return merged
+
+
+def add_team_form(rated):
+    """Pre-game form for every team-game row.
+
+    Every feature is shifted by one game so a row only ever sees games
+    played strictly before it.
+    """
+    g = rated.sort_values(["TEAM_ID", "SEASON", "GAME_DATE"]).copy()
+    grp = g.groupby(["TEAM_ID", "SEASON"])
+    for col in STAT_COLS:
+        g[f"{col}_SEASON"] = grp[col].transform(
+            lambda s: s.shift(1).expanding().mean())
+        g[f"{col}_LAST10"] = grp[col].transform(
+            lambda s: s.shift(1).rolling(10, min_periods=1).mean())
+    g["REST_DAYS"] = (grp["GAME_DATE"].diff().dt.days
+                      .clip(upper=7).fillna(7.0))
+    g["BACK_TO_BACK"] = (g["REST_DAYS"] <= 1).astype(int)
+    return g
+
+
+def build_matchups(formed):
+    """One row per game: home-minus-away feature diffs plus the label."""
+    home = formed[formed["MATCHUP"].str.contains("vs.", regex=False)]
+    away = formed[formed["MATCHUP"].str.contains("@", regex=False)]
+    m = home.merge(away, on="GAME_ID", suffixes=("_HOME", "_AWAY"))
+    rows = pd.DataFrame({
+        "GAME_ID": m["GAME_ID"],
+        "GAME_DATE": m["GAME_DATE_HOME"],
+        "SEASON": m["SEASON_HOME"],
+        "IS_PLAYOFF": m["IS_PLAYOFF_HOME"],
+        "HOME_TEAM": m["TEAM_ABBREVIATION_HOME"],
+        "AWAY_TEAM": m["TEAM_ABBREVIATION_AWAY"],
+        "HOME_PTS": m["PTS_HOME"],
+        "AWAY_PTS": m["PTS_AWAY"],
+        "HOME_WIN": (m["WL_HOME"] == "W").astype(int),
+    })
+    for col in FORM_COLS:
+        rows[f"{col}_DIFF"] = m[f"{col}_HOME"] - m[f"{col}_AWAY"]
+    return rows.dropna(subset=DIFF_COLS).reset_index(drop=True)

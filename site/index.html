@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Daily NBA game predictions from a from-scratch model, with matchup breakdowns and win probabilities.">
+<title>NBA Game Predictor</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>NBA Predictor</h1>
+  <p id="mode-note" class="hidden"></p>
+</header>
+<main>
+  <button id="prev" class="arrow" aria-label="Previous game">&#8592;</button>
+  <section id="card" aria-live="polite"></section>
+  <button id="next" class="arrow" aria-label="Next game">&#8594;</button>
+</main>
+<div id="dots"></div>
+<footer><span id="updated"></span></footer>
+<script src="app.js"></script>
+</body>
+</html>
