@@ -1,7 +1,8 @@
 name: Daily predictions
+# Schedule removed: stats.nba.com blocks GitHub runner IPs, so the daily
+# refresh runs from a local machine via scripts/daily_refresh.sh instead.
+# Manual dispatch kept for retrying the cloud path if the block ever lifts.
 on:
-  schedule:
-    - cron: "0 13 * * *"  # 9am ET during daylight time
   workflow_dispatch:
 
 permissions:

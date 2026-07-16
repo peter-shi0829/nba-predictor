@@ -6,9 +6,11 @@ team stats: offensive and defensive rating, pace, recent form, and rest.
 
 ## How it works
 
-1. A daily GitHub Action pulls team game logs with `nba_api`. Schedule
-   data comes from the ScoreboardV3 endpoint (its predecessor was
-   deprecated upstream and stopped returning valid JSON).
+1. A daily scheduled job (`scripts/daily_refresh.sh`, run locally since
+   stats.nba.com blocks cloud datacenter IPs) pulls team game logs with
+   `nba_api` and pushes the refreshed predictions, which triggers the
+   Pages deploy. Schedule data comes from the ScoreboardV3 endpoint (its
+   predecessor was deprecated upstream and stopped returning valid JSON).
 2. `pipeline/features.py` builds pre-game features for every matchup.
    Every number a prediction uses comes strictly from games played
    before tip-off.
