@@ -56,3 +56,58 @@ def test_explanation_names_the_picked_team():
     assert "BOS" in text
     text_away = predict.explanation("BOS", "NYK", 0.36, contributions)
     assert "NYK" in text_away
+
+
+def test_fetch_schedule_filters_to_real_upcoming_games():
+    def fake_day(d):
+        return pd.DataFrame({
+            "GAME_ID": ["0022600001", "0012600001", "0042500401"],
+            "GAME_STATUS_TEXT": ["7:30 pm ET", "7:00 pm ET", "Final"],
+            "HOME_TEAM_ID": [1610612738, 1610612752, 1610612743],
+            "VISITOR_TEAM_ID": [1610612752, 1610612738, 1610612747],
+        })
+
+    games = predict.fetch_schedule(days=1, start=date(2026, 10, 20),
+                                   fetch_day=fake_day)
+    # preseason (001 prefix) and finished games are excluded
+    assert len(games) == 1
+    assert games[0]["game_id"] == "0022600001"
+    assert games[0]["is_playoff"] is False
+
+
+def test_validate_payload_rejects_bad_probability():
+    good = {
+        "generated_at": "2026-07-15T13:00:00+00:00",
+        "mode": "upcoming",
+        "games": [{
+            "date": "2026-10-20", "time_et": "7:30 pm ET", "is_playoff": False,
+            "home": {"abbr": "BOS", "win_prob": 0.64,
+                     "stats": {"ortg": 118.2, "drtg": 110.1, "pace": 98.0,
+                               "net_last10": 6.4, "rest_days": 2}},
+            "away": {"abbr": "NYK", "win_prob": 0.36,
+                     "stats": {"ortg": 114.9, "drtg": 112.3, "pace": 97.1,
+                               "net_last10": 1.2, "rest_days": 1}},
+            "explanation": "BOS gets the edge here.",
+            "actual": None,
+        }],
+    }
+    predict.validate_payload(good)  # must not raise
+
+    bad = {**good, "games": [{**good["games"][0],
+                              "home": {**good["games"][0]["home"],
+                                       "win_prob": 1.4}}]}
+    try:
+        predict.validate_payload(bad)
+        raise AssertionError("expected ValueError")
+    except ValueError:
+        pass
+
+
+def test_retro_entries_include_actual_results():
+    games = synthetic_games(n_games=8)
+    games.loc[games.index[-4:], "IS_PLAYOFF"] = 1  # last two games are playoffs
+    entries = predict.retro_entries(trained_model(), games, n=2)
+    assert len(entries) == 2
+    for e in entries:
+        assert e["actual"]["winner"] in (e["home"]["abbr"], e["away"]["abbr"])
+        assert e["is_playoff"] is True

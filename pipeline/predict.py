@@ -110,3 +110,125 @@ def build_entry(model, home_abbr, away_abbr, home_state, away_state,
         "explanation": explanation(home_abbr, away_abbr, prob_home, contrib),
         "actual": None,
     }
+
+
+def _fetch_day_real(d):
+    from nba_api.stats.endpoints import scoreboardv2
+    for attempt in range(3):
+        try:
+            sb = scoreboardv2.ScoreboardV2(
+                game_date=d.strftime("%m/%d/%Y"), timeout=60)
+            time.sleep(1.5)
+            return sb.game_header.get_data_frame()
+        except Exception:
+            if attempt == 2:
+                raise
+            time.sleep(5 * 2 ** attempt)
+
+
+def fetch_schedule(days=7, start=None, fetch_day=_fetch_day_real):
+    """Upcoming real games. GAME_ID prefix 002 = regular season, 004 = playoffs."""
+    start = start or date.today()
+    games = []
+    for offset in range(days):
+        d = start + timedelta(days=offset)
+        header = fetch_day(d)
+        for _, g in header.iterrows():
+            gid = str(g["GAME_ID"])
+            status = (g["GAME_STATUS_TEXT"] or "").strip()
+            if gid[:3] not in ("002", "004") or status == "Final":
+                continue
+            games.append({
+                "game_id": gid,
+                "date": d.isoformat(),
+                "time_et": status,
+                "home_team_id": int(g["HOME_TEAM_ID"]),
+                "away_team_id": int(g["VISITOR_TEAM_ID"]),
+                "is_playoff": gid.startswith("004"),
+            })
+    return games
+
+
+def _check(cond, msg):
+    if not cond:
+        raise ValueError(f"bad predictions payload: {msg}")
+
+
+def validate_payload(payload):
+    _check(payload["mode"] in ("upcoming", "retro"), "mode")
+    datetime.fromisoformat(payload["generated_at"])
+    stat_keys = {"ortg", "drtg", "pace", "net_last10", "rest_days"}
+    for g in payload["games"]:
+        for side in ("home", "away"):
+            s = g[side]
+            _check(0.0 <= s["win_prob"] <= 1.0, f"win_prob {s['win_prob']}")
+            _check(set(s["stats"]) == stat_keys, "stats keys")
+        _check(abs(g["home"]["win_prob"] + g["away"]["win_prob"] - 1) < 1e-6,
+               "probs do not sum to 1")
+        _check(g["home"]["abbr"] != g["away"]["abbr"], "same team twice")
+        _check(isinstance(g["explanation"], str) and g["explanation"],
+               "empty explanation")
+
+
+def retro_entries(model, games, n=RETRO_GAMES):
+    """Offseason mode: replay the last n playoff games, prediction vs result."""
+    rated = add_ratings(games)
+    matchups = build_matchups(add_team_form(rated))
+    playoff = matchups[matchups["IS_PLAYOFF"] == 1].sort_values("GAME_DATE")
+    entries = []
+    for _, row in playoff.tail(n).iterrows():
+        home_state = team_state(rated, row["HOME_TEAM"], row["SEASON"],
+                                row["GAME_DATE"])
+        away_state = team_state(rated, row["AWAY_TEAM"], row["SEASON"],
+                                row["GAME_DATE"])
+        entry = build_entry(model, row["HOME_TEAM"], row["AWAY_TEAM"],
+                            home_state, away_state, is_playoff=True,
+                            date_str=row["GAME_DATE"].date().isoformat(),
+                            time_et="")
+        winner = row["HOME_TEAM"] if row["HOME_WIN"] else row["AWAY_TEAM"]
+        entry["actual"] = {"winner": winner,
+                           "home_pts": int(row["HOME_PTS"]),
+                           "away_pts": int(row["AWAY_PTS"])}
+        entries.append(entry)
+    return entries
+
+
+def upcoming_entries(model, games, schedule):
+    from nba_api.stats.static import teams as static_teams
+    id_to_abbr = {t["id"]: t["abbreviation"] for t in static_teams.get_teams()}
+    rated = add_ratings(games)
+    season = sorted(games["SEASON"].unique())[-1]
+    entries = []
+    for g in schedule:
+        home_abbr = id_to_abbr[g["home_team_id"]]
+        away_abbr = id_to_abbr[g["away_team_id"]]
+        game_date = pd.Timestamp(g["date"])
+        entries.append(build_entry(
+            model, home_abbr, away_abbr,
+            team_state(rated, home_abbr, season, game_date),
+            team_state(rated, away_abbr, season, game_date),
+            is_playoff=g["is_playoff"], date_str=g["date"],
+            time_et=g["time_et"]))
+    return entries
+
+
+def main():
+    games = load_games()
+    model = joblib.load(MODEL_PATH)
+    schedule = fetch_schedule()
+    if schedule:
+        mode, entries = "upcoming", upcoming_entries(model, games, schedule)
+    else:
+        mode, entries = "retro", retro_entries(model, games)
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "mode": mode,
+        "games": entries,
+    }
+    validate_payload(payload)
+    SITE_PATH.write_text(json.dumps(payload, indent=2))
+    print(f"wrote {SITE_PATH}: mode={mode}, {len(entries)} games")
+
+
+if __name__ == "__main__":
+    main()
