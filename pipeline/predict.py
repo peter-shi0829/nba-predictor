@@ -119,14 +119,25 @@ def build_entry(model, home_abbr, away_abbr, home_state, away_state,
     }
 
 
+def _v3_games_to_header(games):
+    """Adapt ScoreboardV3's games list to the header-frame columns we use."""
+    return pd.DataFrame({
+        "GAME_ID": [g.get("gameId", "") for g in games],
+        "GAME_STATUS_TEXT": [g.get("gameStatusText", "") for g in games],
+        "HOME_TEAM_ID": [g.get("homeTeam", {}).get("teamId", 0) for g in games],
+        "VISITOR_TEAM_ID": [g.get("awayTeam", {}).get("teamId", 0) for g in games],
+    })
+
+
 def _fetch_day_real(d):
-    from nba_api.stats.endpoints import scoreboardv2
+    from nba_api.stats.endpoints import scoreboardv3
     for attempt in range(3):
         try:
-            sb = scoreboardv2.ScoreboardV2(
-                game_date=d.strftime("%m/%d/%Y"), timeout=60)
+            sb = scoreboardv3.ScoreboardV3(
+                game_date=d.isoformat(), timeout=60)
             time.sleep(1.5)
-            return sb.game_header.get_data_frame()
+            games = sb.get_dict().get("scoreboard", {}).get("games", [])
+            return _v3_games_to_header(games)
         except Exception:
             if attempt == 2:
                 raise

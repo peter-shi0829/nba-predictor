@@ -6,9 +6,9 @@ team stats: offensive and defensive rating, pace, recent form, and rest.
 
 ## How it works
 
-1. A daily GitHub Action pulls team game logs with `nba_api`. The
-   schedule endpoint (ScoreboardV2) is deprecated upstream; migrating
-   to ScoreboardV3 is a tracked follow-up.
+1. A daily GitHub Action pulls team game logs with `nba_api`. Schedule
+   data comes from the ScoreboardV3 endpoint (its predecessor was
+   deprecated upstream and stopped returning valid JSON).
 2. `pipeline/features.py` builds pre-game features for every matchup.
    Every number a prediction uses comes strictly from games played
    before tip-off.

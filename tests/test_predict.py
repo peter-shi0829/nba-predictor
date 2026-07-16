@@ -93,6 +93,29 @@ def test_fetch_schedule_handles_nan_status_text():
     assert games[0]["time_et"] == ""
 
 
+def test_v3_games_to_header_adapts_fields():
+    games = [
+        {"gameId": "0022600001", "gameStatusText": "7:30 pm ET",
+         "homeTeam": {"teamId": 1610612738}, "awayTeam": {"teamId": 1610612752}},
+        {"gameId": "0042500401", "gameStatusText": "Final",
+         "homeTeam": {"teamId": 1610612743}, "awayTeam": {"teamId": 1610612747}},
+    ]
+    header = predict._v3_games_to_header(games)
+    assert list(header["GAME_ID"]) == ["0022600001", "0042500401"]
+    assert list(header["GAME_STATUS_TEXT"]) == ["7:30 pm ET", "Final"]
+    assert list(header["HOME_TEAM_ID"]) == [1610612738, 1610612743]
+    assert list(header["VISITOR_TEAM_ID"]) == [1610612752, 1610612747]
+
+
+def test_v3_empty_day_yields_empty_schedule():
+    header = predict._v3_games_to_header([])
+    assert set(header.columns) == {"GAME_ID", "GAME_STATUS_TEXT",
+                                   "HOME_TEAM_ID", "VISITOR_TEAM_ID"}
+    games = predict.fetch_schedule(days=1, start=date(2026, 7, 15),
+                                   fetch_day=lambda d: predict._v3_games_to_header([]))
+    assert games == []
+
+
 def test_validate_payload_rejects_bad_probability():
     good = {
         "generated_at": "2026-07-15T13:00:00+00:00",
