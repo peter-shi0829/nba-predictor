@@ -102,8 +102,8 @@ def main():
         print(f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}")
     if metrics["accuracy"] <= metrics["baseline_home_accuracy"]:
         sys.exit("model does not beat the home-court baseline; refusing to save")
-    save_charts(model, test_df)
     final = make_model().fit(matchups[MODEL_FEATURES], matchups["HOME_WIN"])
+    save_charts(final, test_df)
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(final, MODEL_PATH)
     print(f"saved {MODEL_PATH}")

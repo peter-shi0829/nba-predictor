@@ -31,6 +31,20 @@ def test_evaluate_beats_home_baseline_on_learnable_data():
     assert "PROB" in test_df.columns
 
 
+def test_saved_model_round_trips(tmp_path):
+    import joblib
+
+    m = synthetic_matchups()
+    model, _, _ = train.evaluate(m, n_test_seasons=1)
+    path = tmp_path / "model.joblib"
+    joblib.dump(model, path)
+    loaded = joblib.load(path)
+    probs = loaded.predict_proba(m[MODEL_FEATURES].head(5))
+    assert probs.shape == (5, 2)
+    assert "scaler" in loaded.named_steps
+    assert "clf" in loaded.named_steps
+
+
 def test_save_charts_writes_three_pngs(tmp_path):
     m = synthetic_matchups()
     model, metrics, test_df = train.evaluate(m, n_test_seasons=1)
