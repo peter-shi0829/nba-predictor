@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-07-15T13:00:00+00:00",
+  "mode": "retro",
+  "games": [
+    {
+      "date": "2026-06-19", "time_et": "", "is_playoff": true,
+      "home": {"abbr": "OKC", "win_prob": 0.58,
+               "stats": {"ortg": 117.4, "drtg": 109.8, "pace": 99.2,
+                         "net_last10": 5.1, "rest_days": 2}},
+      "away": {"abbr": "NYK", "win_prob": 0.42,
+               "stats": {"ortg": 115.1, "drtg": 111.6, "pace": 96.8,
+                         "net_last10": 3.3, "rest_days": 2}},
+      "explanation": "OKC gets the edge here, built on overall team strength and season-long defense.",
+      "actual": {"winner": "OKC", "home_pts": 112, "away_pts": 104}
+    },
+    {
+      "date": "2026-06-16", "time_et": "", "is_playoff": true,
+      "home": {"abbr": "NYK", "win_prob": 0.55,
+               "stats": {"ortg": 115.3, "drtg": 111.2, "pace": 96.9,
+                         "net_last10": 4.0, "rest_days": 2}},
+      "away": {"abbr": "OKC", "win_prob": 0.45,
+               "stats": {"ortg": 117.1, "drtg": 110.1, "pace": 99.0,
+                         "net_last10": 4.8, "rest_days": 2}},
+      "explanation": "NYK gets the edge here, mostly on the rest advantage.",
+      "actual": {"winner": "OKC", "home_pts": 101, "away_pts": 108}
+    }
+  ]
+}
