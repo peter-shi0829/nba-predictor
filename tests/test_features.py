@@ -20,6 +20,15 @@ def test_add_ratings_computes_ortg_drtg_pace():
     assert home["PACE"] == pytest.approx((95.8 + 100.92) / 2)
 
 
+def test_add_ratings_ignores_duplicate_team_game_rows():
+    games = synthetic_games(n_games=2)
+    dirty = pd.concat([games, games.iloc[[0]]], ignore_index=True)
+    rated = features.add_ratings(dirty)
+
+    assert len(rated) == 4  # two games x two teams, no fan-out
+    assert not rated.duplicated(subset=["GAME_ID", "TEAM_ID"]).any()
+
+
 def test_form_features_use_only_prior_games():
     games = synthetic_games(n_games=3)
     formed = features.add_team_form(features.add_ratings(games))
@@ -77,3 +86,4 @@ def test_build_matchups_one_row_per_game_with_diffs():
     assert row["AWAY_TEAM"] == "AAA"
     assert row["HOME_WIN"] == 1  # home team scored 102 vs 97
     assert "HOME_PTS" in matchups.columns  # kept for retro mode display
+    assert not matchups[features.MODEL_FEATURES].isna().any().any()

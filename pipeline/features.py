@@ -11,6 +11,7 @@ MODEL_FEATURES = DIFF_COLS + ["IS_PLAYOFF"]
 def add_ratings(games):
     """Per team-game: possessions, offensive/defensive/net rating, pace."""
     g = games.copy()
+    g = g.drop_duplicates(subset=["GAME_ID", "TEAM_ID"])
     g["GAME_DATE"] = pd.to_datetime(g["GAME_DATE"])
     g["POSS"] = g["FGA"] - g["OREB"] + g["TOV"] + 0.44 * g["FTA"]
     opp = g[["GAME_ID", "TEAM_ID", "PTS", "POSS"]].rename(columns={
