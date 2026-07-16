@@ -6,30 +6,43 @@ const pct = v => Math.round(v * 100) + "%";
 const fmt = v => (v === null || v === undefined) ? "–" : v;
 
 async function load() {
-  const [pred, teamData] = await Promise.all([
-    fetch("predictions.json").then(r => r.json()),
-    fetch("teams.json").then(r => r.json()),
-  ]);
-  teams = teamData;
-  games = pred.games;
-  document.getElementById("updated").textContent =
-    "Last updated " + new Date(pred.generated_at).toLocaleString();
-  if (pred.mode === "retro") {
-    const note = document.getElementById("mode-note");
-    note.textContent =
-      "Offseason. Looking back at the last playoffs: model pick vs what happened.";
-    note.classList.remove("hidden");
-  }
-  if (!games.length) {
+  try {
+    const [pred, teamData] = await Promise.all([
+      fetch("predictions.json").then(r => {
+        if (!r.ok) throw new Error("predictions.json " + r.status);
+        return r.json();
+      }),
+      fetch("teams.json").then(r => {
+        if (!r.ok) throw new Error("teams.json " + r.status);
+        return r.json();
+      }),
+    ]);
+    teams = teamData;
+    games = pred.games;
+    document.getElementById("updated").textContent =
+      "Last updated " + new Date(pred.generated_at).toLocaleString();
+    if (pred.mode === "retro") {
+      const note = document.getElementById("mode-note");
+      note.textContent =
+        "Offseason. Looking back at the last playoffs: model pick vs what happened.";
+      note.classList.remove("hidden");
+    }
+    if (!games.length) {
+      document.getElementById("card").innerHTML =
+        "<p class='empty'>No games in the next week. Check back soon.</p>";
+      document.getElementById("prev").disabled = true;
+      document.getElementById("next").disabled = true;
+      return;
+    }
+    const dots = document.getElementById("dots");
+    games.forEach(() => dots.appendChild(document.createElement("span")));
+    render();
+  } catch (err) {
     document.getElementById("card").innerHTML =
-      "<p class='empty'>No games in the next week. Check back soon.</p>";
+      "<p class='empty'>Predictions are updating. Check back in a few minutes.</p>";
     document.getElementById("prev").disabled = true;
     document.getElementById("next").disabled = true;
-    return;
   }
-  const dots = document.getElementById("dots");
-  games.forEach(() => dots.appendChild(document.createElement("span")));
-  render();
 }
 
 function teamName(abbr) {
