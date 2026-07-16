@@ -91,7 +91,8 @@ def side_dict(abbr, prob, state):
 
 def build_entry(model, home_abbr, away_abbr, home_state, away_state,
                 is_playoff, date_str, time_et):
-    if home_state is None or away_state is None:
+    missing_state = home_state is None or away_state is None
+    if missing_state:
         # opening-night fallback: no information, all diffs zero
         row = {c: 0.0 for c in DIFF_COLS}
         row["IS_PLAYOFF"] = int(is_playoff)
@@ -100,14 +101,20 @@ def build_entry(model, home_abbr, away_abbr, home_state, away_state,
     prob_home = float(model.predict_proba(
         pd.DataFrame([row])[MODEL_FEATURES])[0, 1])
     ph = round(prob_home, 3)
-    contrib = factor_contributions(model, row)
+    if missing_state:
+        # a zero-diff row has no factors worth naming; be honest about it
+        text = ("No games played yet this season. "
+                "This pick leans on home-court advantage alone.")
+    else:
+        contrib = factor_contributions(model, row)
+        text = explanation(home_abbr, away_abbr, prob_home, contrib)
     return {
         "date": date_str,
         "time_et": time_et,
         "is_playoff": bool(is_playoff),
         "home": side_dict(home_abbr, ph, home_state),
         "away": side_dict(away_abbr, round(1 - ph, 3), away_state),
-        "explanation": explanation(home_abbr, away_abbr, prob_home, contrib),
+        "explanation": text,
         "actual": None,
     }
 
@@ -135,7 +142,7 @@ def fetch_schedule(days=7, start=None, fetch_day=_fetch_day_real):
         header = fetch_day(d)
         for _, g in header.iterrows():
             gid = str(g["GAME_ID"])
-            status = (g["GAME_STATUS_TEXT"] or "").strip()
+            status = "" if pd.isna(g["GAME_STATUS_TEXT"]) else str(g["GAME_STATUS_TEXT"]).strip()
             if gid[:3] not in ("002", "004") or status == "Final":
                 continue
             games.append({
